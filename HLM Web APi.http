@@ -1,0 +1,6 @@
+@HLM_Web_APi_HostAddress = http://localhost:5081
+
+GET {{HLM_Web_APi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
