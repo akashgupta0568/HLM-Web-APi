@@ -1,4 +1,5 @@
 ﻿using HLM_Web_APi.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -19,7 +20,9 @@ namespace HLM_Web_APi.Controllers
             _configuration = configuration;
         }
 
+        [Authorize]
         [HttpGet("list")]
+     
         public IActionResult GetDoctors()
         {
             try
@@ -127,7 +130,7 @@ namespace HLM_Web_APi.Controllers
 
                     // Insert new doctor
                     string query = "INSERT INTO Doctors (Name, Specialization, PhoneNumber, Email, HospitalID, RegisterDateTime,ConsultationFee) " +
-                                   "VALUES (@Name, @Specialization, @PhoneNumber, @Email, @HospitalID,@ConsultationFee GETDATE())";
+                                   "VALUES (@Name, @Specialization, @PhoneNumber, @Email, @HospitalID,GETDATE(),@ConsultationFee)";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
@@ -152,39 +155,40 @@ namespace HLM_Web_APi.Controllers
 
         // ✅ PUT update doctor
         [HttpPut("update/{id}")]
-        public IActionResult UpdateDoctor(int id, [FromBody] DoctorDto doctor)
+public IActionResult UpdateDoctor(int id, [FromBody] DoctorDto doctor)
+{
+    try
+    {
+        using (SqlConnection conn = new SqlConnection(_connection.ConnectionString))
         {
-            try
-            {
-                using (SqlConnection conn = new SqlConnection(_connection.ConnectionString))
-                {
-                    conn.Open();
+            conn.Open();
 
-                    string query = "UPDATE Doctors " +
-                 "SET Name = @Name, Specialization = @Specialization, PhoneNumber = @PhoneNumber, Email = @Email , ConsultationFee = @ConsultationFee" +
-                 "WHERE DoctorID = @DoctorID AND HospitalID = @HospitalID;";
+            string query = "UPDATE Doctors " +
+                "SET Name = @Name, Specialization = @Specialization, PhoneNumber = @PhoneNumber, Email = @Email, ConsultationFee = @ConsultationFee " + // Fixed space issue
+                "WHERE DoctorID = @DoctorID AND HospitalID = @HospitalID;";
 
-                    using (SqlCommand cmd = new SqlCommand(query, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@DoctorID", id);
-                        cmd.Parameters.AddWithValue("@Name", doctor.Name);
-                        cmd.Parameters.AddWithValue("@Specialization", doctor.Specialization);
-                        cmd.Parameters.AddWithValue("@PhoneNumber", doctor.PhoneNumber);
-                        cmd.Parameters.AddWithValue("@Email", doctor.Email);
-                        cmd.Parameters.AddWithValue("@HospitalID", doctor.HospitalID);
-                        cmd.Parameters.AddWithValue("@ConsultationFee", doctor.ConsultationFee);
-                        int result = cmd.ExecuteNonQuery();
-                        return result > 0
-                            ? Ok(new { message = "Doctor updated successfully!" })
-                            : NotFound(new { message = "Doctor not found" });
-                    }
-                }
-            }
-            catch (Exception ex)
+            using (SqlCommand cmd = new SqlCommand(query, conn))
             {
-                return StatusCode(500, new { message = "Error: " + ex.Message });
+                cmd.Parameters.AddWithValue("@DoctorID", id);
+                cmd.Parameters.AddWithValue("@Name", doctor.Name);
+                cmd.Parameters.AddWithValue("@Specialization", doctor.Specialization);
+                cmd.Parameters.AddWithValue("@PhoneNumber", doctor.PhoneNumber);
+                cmd.Parameters.AddWithValue("@Email", doctor.Email);
+                cmd.Parameters.AddWithValue("@HospitalID", doctor.HospitalID);
+                cmd.Parameters.AddWithValue("@ConsultationFee", doctor.ConsultationFee);
+
+                int result = cmd.ExecuteNonQuery();
+                return result > 0
+                    ? Ok(new { message = "Doctor updated successfully!" })
+                    : NotFound(new { message = "Doctor not found" });
             }
         }
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { message = "Error: " + ex.Message });
+    }
+}
 
         // ✅ DELETE doctor
         [HttpDelete("delete/{id}")]
@@ -214,5 +218,60 @@ namespace HLM_Web_APi.Controllers
                 return StatusCode(500, new { message = "Error: " + ex.Message });
             }
         }
+
+        [HttpGet("by-hospital/{hospitalId}")]
+        public IActionResult GetDoctorsByHospital(int hospitalId)
+        {
+            try
+            {
+                List<object> doctors = new List<object>(); // Properly initialize the list
+
+                using (SqlConnection conn = new SqlConnection(_connection.ConnectionString))
+                {
+                    conn.Open();
+                    string query = @"
+            SELECT DoctorID, Name, Specialization, PhoneNumber, Email, 
+                   HospitalID, RegisterDateTime, ConsultationFee 
+            FROM Doctors 
+            WHERE HospitalID = @HospitalID";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@HospitalID", hospitalId);
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                doctors.Add(new
+                                {
+                                    id = reader["DoctorID"],
+                                    name = reader["Name"],
+                                    specialization = reader["Specialization"],
+                                    phoneNumber = reader["PhoneNumber"],
+                                    email = reader["Email"],
+                                    hospitalId = reader["HospitalID"],
+                                    registerDateTime = reader["RegisterDateTime"] != DBNull.Value ? Convert.ToDateTime(reader["RegisterDateTime"]) : (DateTime?)null,
+                                    consultationFee = reader["ConsultationFee"] != DBNull.Value ? Convert.ToDecimal(reader["ConsultationFee"]) : 0m
+                                });
+                            }
+                        }
+                    }
+                }
+
+                // Always return OK with an empty list if no doctors are found
+                return Ok(new
+                {
+                    message = doctors.Count > 0 ? "Success" : "No doctors found for this hospital",
+                    data = doctors
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error: " + ex.Message });
+            }
+        }
+
     }
 }
+

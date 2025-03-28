@@ -68,7 +68,7 @@ namespace HLM_Web_APi.Controllers
                 using (SqlConnection conn = new SqlConnection(_connection.ConnectionString))
                 {
                     conn.Open();
-                    string query = "SELECT PatientID, Name, Phone, Email, Gender, DateOfBirth, HospitalID, CreatedAt FROM Patients WHERE PatientID = @PatientID";
+                    string query = "SELECT PatientID, Name, Phone, Email, Age, Gender,  HospitalID, CreatedAt FROM Patients WHERE PatientID = @PatientID";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
@@ -83,8 +83,8 @@ namespace HLM_Web_APi.Controllers
                                     Name = reader["Name"],
                                     Phone = reader["Phone"],
                                     Email = reader["Email"],
+                                    Age = reader["Age"],
                                     Gender = reader["Gender"],
-                                    DateOfBirth = reader["DateOfBirth"],
                                     HospitalID = reader["HospitalID"],
                                     CreatedAt = reader["CreatedAt"]
                                 });
@@ -214,5 +214,78 @@ namespace HLM_Web_APi.Controllers
                 return StatusCode(500, new { message = "Error: " + ex.Message });
             }
         }
+
+        [HttpGet("fetchlistAdmin&User")]
+        public IActionResult GetPatients(int? hospitalId = null)
+        {
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connection.ConnectionString))
+                {
+                    conn.Open();
+
+                    string query = @"
+            SELECT 
+                p.PatientID, 
+                p.Name, 
+                p.Phone, 
+                p.Email, 
+                p.Gender, 
+                p.Age,  
+                p.HospitalID, 
+                p.CreatedAt, 
+                u.FullName AS CreatedByUserName, 
+                u.RoleID AS CreatedByRoleID
+            FROM Patients p
+            LEFT JOIN Users u ON p.HospitalID = u.UserID
+            WHERE 
+                (@HospitalID IS NULL OR p.HospitalID = @HospitalID);";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@HospitalID", (object)hospitalId ?? DBNull.Value);
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            List<PatientDto> patients = new List<PatientDto>();
+
+                            while (reader.Read())
+                            {
+                                patients.Add(new PatientDto
+                                {
+                                    PatientID = reader["PatientID"] as int? ?? 0,
+                                    Name = reader["Name"] as string ?? "",
+                                    Phone = reader["Phone"] as string ?? "",
+                                    Email = reader["Email"] as string ?? "",
+                                    Gender = reader["Gender"] as string ?? "",
+                                    Age = reader["Age"] as int? ?? 0,
+                                    HospitalID = reader["HospitalID"] as int? ?? 0,
+                                    CreatedAt = reader["CreatedAt"] as DateTime? ?? default,
+                                    CreatedByUserName = reader["CreatedByUserName"] as string ?? "",
+                                    CreatedByRoleID = reader["CreatedByRoleID"] as int? ?? 0
+                                });
+                            }
+
+                            return Ok(new
+                            {
+                                success = true,
+                                message = "Patients retrieved successfully",
+                                data = patients
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Error: " + ex.Message
+                });
+            }
+        }
+
+
     }
 }

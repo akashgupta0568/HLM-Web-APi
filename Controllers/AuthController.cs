@@ -1,8 +1,10 @@
 ﻿using HLM_Web_APi.DTO;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.IdentityModel.Tokens;
+using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -21,6 +23,79 @@ namespace HLM_Web_APi.Controllers
             _connection = connection;
             _configuration = configuration;
         }
+
+        [HttpGet("roles-hospitals")]
+        public IActionResult GetRolesAndHospitals()
+        {
+            List<Role> roles = new List<Role>();
+            List<Hospital> hospitals = new List<Hospital>();
+
+            string connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                try
+                {
+                    conn.Open();
+
+                    // Fetch Roles
+                    string roleQuery = "SELECT RoleId, RoleName FROM Roles";
+                    using (SqlCommand roleCmd = new SqlCommand(roleQuery, conn))
+                    {
+                        using (SqlDataReader reader = roleCmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                roles.Add(new Role
+                                {
+                                    RoleId = Convert.ToInt32(reader["RoleId"]),
+                                    RoleName = reader["RoleName"].ToString()
+                                });
+                            }
+                        }
+                    }
+
+                    // Fetch Hospitals
+                    string hospitalQuery = "SELECT HospitalID, Name, Address, City, State, ZipCode, PhoneNumber, Email, LicenseNumber, CreatedAt, CreatedBy FROM Hospitals";
+                    using (SqlCommand hospitalCmd = new SqlCommand(hospitalQuery, conn))
+                    {
+                        using (SqlDataReader reader = hospitalCmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                hospitals.Add(new Hospital
+                                {
+                                    HospitalID = Convert.ToInt32(reader["HospitalID"]),
+                                    Name = reader["Name"].ToString(),
+                                    Address = reader["Address"].ToString(),
+                                    City = reader["City"].ToString(),
+                                    State = reader["State"].ToString(),
+                                    ZipCode = reader["ZipCode"].ToString(),
+                                    PhoneNumber = reader["PhoneNumber"].ToString(),
+                                    Email = reader["Email"].ToString(),
+                                    LicenseNumber = reader["LicenseNumber"].ToString(),
+                                    CreatedAt = Convert.ToDateTime(reader["CreatedAt"]),
+                                    CreatedBy = Convert.ToInt32(reader["CreatedBy"])
+                                });
+                            }
+                        }
+                    }
+
+                    // Return both lists in JSON format
+                    return Ok(new
+                    {
+                        roles = roles,
+                        hospitals = hospitals
+                    });
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, "Internal Server Error: " + ex.Message);
+                }
+            }
+        }
+
+
 
         // ✅ Register Endpoint
         [HttpPost("register")]
@@ -48,9 +123,10 @@ namespace HLM_Web_APi.Controllers
                         }
                     }
 
-                    // 🔹 Insert new user
-                    string query = "INSERT INTO Users (FullName, Email, PhoneNumber, PasswordHash, RoleID, CreatedAt) " +
-                                   "VALUES (@FullName, @Email, @PhoneNumber, @PasswordHash, @RoleID, GETDATE())";
+                    // 🔹 Insert new user and return ID
+                    string query = "INSERT INTO Users (FullName, Email, PhoneNumber, PasswordHash,PlainPassword, RoleID, CreatedAt) " +
+                                   "OUTPUT INSERTED.UserID " +  // Retrieve the newly inserted ID
+                                   "VALUES (@FullName, @Email, @PhoneNumber, @PasswordHash, @PlainPassword, @RoleID, GETDATE())";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
@@ -58,12 +134,13 @@ namespace HLM_Web_APi.Controllers
                         cmd.Parameters.AddWithValue("@Email", user.Email);
                         cmd.Parameters.AddWithValue("@PhoneNumber", user.PhoneNumber);
                         cmd.Parameters.AddWithValue("@PasswordHash", hashedPassword);
+                        cmd.Parameters.AddWithValue("@PlainPassword",user.Password);
                         cmd.Parameters.AddWithValue("@RoleID", user.RoleID);
 
-                        int result = cmd.ExecuteNonQuery();
+                        object insertedId = cmd.ExecuteScalar();
 
-                        if (result > 0)
-                            return Ok(new { message = "User registered successfully!" });
+                        if (insertedId != null)
+                            return Ok(new { message = "User registered successfully!", userId = insertedId });
                         else
                             return BadRequest(new { message = "Registration failed" });
                     }
@@ -75,8 +152,6 @@ namespace HLM_Web_APi.Controllers
             }
         }
 
-
-
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginUserDto user)
         {
@@ -86,53 +161,95 @@ namespace HLM_Web_APi.Controllers
                 {
                     conn.Open();
 
-                    // 🔹 Join Users with Roles to fetch RoleName
-                    string query = @"SELECT u.UserID, u.FullName, u.Email, u.PhoneNumber, 
-                                    u.PasswordHash, u.RoleID, r.RoleName 
-                             FROM Users u
-                             INNER JOIN Roles r ON u.RoleID = r.RoleID
-                             WHERE u.Email = @Email";
+                    // 🔹 Check Admin Login (Users Table)
+                    string adminQuery = @"
+                SELECT u.UserID, u.FullName, u.Email, u.PhoneNumber, 
+                       u.PasswordHash, u.RoleID, r.RoleName 
+                FROM Users u
+                INNER JOIN Roles r ON u.RoleID = r.RoleID
+                WHERE u.Email = @Email";
 
-                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    using (SqlCommand adminCmd = new SqlCommand(adminQuery, conn))
                     {
-                        cmd.Parameters.AddWithValue("@Email", user.Email);
-                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        adminCmd.Parameters.AddWithValue("@Email", user.Email);
+                        using (SqlDataReader adminReader = adminCmd.ExecuteReader())
                         {
-                            if (reader.Read())
+                            if (adminReader.Read())
                             {
-                                string? storedPassword = reader["PasswordHash"] as string;
-
-                                // 🔹 Ensure password hash is valid before verifying
+                                string? storedPassword = adminReader["PasswordHash"] as string;
                                 if (!string.IsNullOrEmpty(storedPassword) && storedPassword.StartsWith("$2"))
                                 {
                                     if (BCrypt.Net.BCrypt.Verify(user.Password, storedPassword))
                                     {
                                         var token = GenerateJwtToken(
-                                            reader["UserID"].ToString(),
-                                            reader["Email"].ToString(),
-                                            reader["RoleID"].ToString()
+                                            adminReader["UserID"].ToString(),
+                                            adminReader["Email"].ToString(),
+                                            adminReader["RoleID"].ToString()
                                         );
 
                                         return Ok(new
                                         {
-                                            message = "Login successful!",
+                                            message = "Admin Login successful!",
                                             token,
-                                            roleID = reader["RoleID"],
-                                            roleName = reader["RoleName"],
-                                            userId = reader["UserID"]
+                                            roleID = adminReader["RoleID"],
+                                            roleName = adminReader["RoleName"],
+                                            userId = adminReader["UserID"],
+                                            userType = "Admin"
                                         });
                                     }
                                 }
-                                else
-                                {
-                                    return StatusCode(500, new { message = "Error: Password hash is invalid or incorrectly stored" });
-                                }
+                                return Unauthorized(new { message = "Invalid credentials" });
                             }
                         }
                     }
-                }
 
-                return Unauthorized(new { message = "Invalid credentials" });
+                    // 🔹 Check Hospital User Login (HospitalUsers Table)
+                    string hospitalUserQuery = @"
+                SELECT hu.UserID, hu.FullName, hu.Email, hu.PhoneNumber, 
+                       hu.PasswordHash, hu.RoleID,hu.CreatedByAdminID, r.RoleName, h.Name AS HospitalName
+                FROM HospitalUsers hu
+                INNER JOIN Roles r ON hu.RoleID = r.RoleID
+                INNER JOIN Hospitals h ON hu.HospitalID = h.HospitalID
+                WHERE hu.Email = @Email";
+
+                    using (SqlCommand hospitalCmd = new SqlCommand(hospitalUserQuery, conn))
+                    {
+                        hospitalCmd.Parameters.AddWithValue("@Email", user.Email);
+                        using (SqlDataReader hospitalReader = hospitalCmd.ExecuteReader())
+                        {
+                            if (hospitalReader.Read())
+                            {
+                                string? storedPassword = hospitalReader["PasswordHash"] as string;
+                                if (!string.IsNullOrEmpty(storedPassword) && storedPassword.StartsWith("$2"))
+                                {
+                                    if (BCrypt.Net.BCrypt.Verify(user.Password, storedPassword))
+                                    {
+                                        var token = GenerateJwtToken(
+                                            hospitalReader["UserID"].ToString(),
+                                            hospitalReader["Email"].ToString(),
+                                            hospitalReader["RoleID"].ToString()
+                                        );
+
+                                        return Ok(new
+                                        {
+                                            message = "Hospital User Login successful!",
+                                            token,
+                                            roleID = hospitalReader["RoleID"],
+                                            roleName = hospitalReader["RoleName"],
+                                            HospitalUserId = hospitalReader["UserID"],
+                                            hospitalName = hospitalReader["HospitalName"],
+                                            CreatedByAdminID = hospitalReader["CreatedByAdminID"],
+                                            userType = "HospitalUser"
+                                        });
+                                    }
+                                }
+                                return Unauthorized(new { message = "Invalid credentials" });
+                            }
+                        }
+                    }
+
+                    return Unauthorized(new { message = "Invalid credentials" });
+                }
             }
             catch (Exception ex)
             {

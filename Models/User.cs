@@ -28,6 +28,7 @@
 
     public class DoctorDto
     {
+        public int DoctorID { get; set; }
         public string Name { get; set; }
         public string Specialization { get; set; }
         public string PhoneNumber { get; set; }
@@ -44,6 +45,12 @@
         public string Gender { get; set; }
         public DateTime DateOfBirth { get; set; }
         public int HospitalID { get; set; }
+        public int PatientID { get; set; }
+        public int Age { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public string CreatedByUserName { get; set; }
+        public int CreatedByRoleID { get; set; }
+        public string CreatedByHospitalUserName { get; set; }
     }
 
     public class AppointmentDto
@@ -58,17 +65,53 @@
 
     public class AppointmentWithPatient
     {
-        public string FullName { get; set; }
-        public string PhoneNumber { get; set; }
-        public string Email { get; set; }
-        public string Gender { get; set; }
-        public DateTime DateOfBirth { get; set; }
-        public int HospitalID { get; set; }
+        public string? Name { get; set; }
+        public string? FullName { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? Email { get; set; }
+        public string? Gender { get; set; }
+        public int? Age { get; set; }  // ✅ Optional
+        public DateTime? DateOfBirth { get; set; }  // ✅ Optional
+        public int HospitalID { get; set; }  // ❌ Required (Assuming every appointment must have a hospital)
+        public int DoctorID { get; set; }  // ❌ Required
+        public int? PatientID { get; set; }  // ✅ Optional
+        public DateOnly AppointmentDate { get; set; }  // ❌ Required (Every appointment must have a date)
+        public string? AppointmentTime { get; set; }  // ✅ Optional
+        public string? Status { get; set; }  // ✅ Optional
+        public decimal? AppointmentFee { get; set; }  // ✅ Optional
+        public string? PaymentMethod { get; set; }  // ✅ Optional
+        public string? TransactionID { get; set; }  // ✅ Optional
+        public int? HospitalUserByID { get; set; }  // ✅ Optional
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;  // ✅ Default to current time
+    }
+
+
+
+
+    public class Payment
+    {
+        public int AppointmentID { get; set; }
+        public int PatientID { get; set; }
         public int DoctorID { get; set; }
+        public int HospitalID { get; set; }
+        public decimal Amount { get; set; }
+        public DateTime PaymentDate { get; set; }  // Added PaymentDate
+        public string PaymentStatus { get; set; }
+        public string? PaymentMethod { get; set; }
+        public string? TransactionID { get; set; }
+    }
+
+    public class FilterAppointment
+    {
+        public int AppointmentID { get; set; }
         public DateTime AppointmentDate { get; set; }
-        public TimeSpan AppointmentTime { get; set; }
+        public string WeekDay { get; set; }
         public string Status { get; set; }
-        public decimal AppointmentFee { get; set; }
+        public int PatientID { get; set; }
+        public int DoctorID { get; set; }
+        public string AppointmentTime { get; set; }
+        public decimal? AppointmentFee { get; set; }
+        public DateTime Date { get; set; }
     }
 
 }

@@ -32,10 +32,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+var corsPolicy = "_allowSpecificOrigins";
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(corsPolicy, policy =>
+    {
+        policy.WithOrigins("http://localhost:4200") // Allow frontend URL
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 // Add Authorization
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
@@ -57,6 +72,7 @@ app.UseExceptionHandler(app =>
 app.UseHttpsRedirection();
 
 // Enable Authentication & Authorization
+app.UseCors(corsPolicy);
 app.UseAuthentication();  // ? Make sure this is before UseAuthorization()
 app.UseAuthorization();
 
