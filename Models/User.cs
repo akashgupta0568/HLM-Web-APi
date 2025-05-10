@@ -40,6 +40,8 @@
     public class PatientDto
     {
         public string Name { get; set; }
+
+        public string FatherHusbandName { get; set; }
         public string Phone { get; set; }
         public string Email { get; set; }
         public string Gender { get; set; }
@@ -66,6 +68,8 @@
     public class AppointmentWithPatient
     {
         public string? Name { get; set; }
+
+        public string? FatherHusbandName { get; set; }
         public string? FullName { get; set; }
         public string? PhoneNumber { get; set; }
         public string? Email { get; set; }
@@ -114,4 +118,35 @@
         public DateTime Date { get; set; }
     }
 
+    public class AppointmentResponse
+    {
+        public int HospitalID { get; set; }
+        public string HospitalName { get; set; }
+        public int AppointmentID { get; set; }
+        public DateTime AppointmentDate { get; set; }
+        public string AppointmentTime { get; set; }
+        public string AppointmentStatus { get; set; }
+        public int PatientID { get; set; }
+        public string PatientName { get; set; }
+        public string PatientPhone { get; set; }
+        public string FatherHusbandName { get; set; }
+        public int DoctorID { get; set; }
+        public string DoctorName { get; set; }
+        public string Specialization { get; set; }
+        public string DoctorPhone { get; set; }
+        public int? PaymentID { get; set; }
+        public DateTime? PaymentDate { get; set; }
+        public string PaymentStatus { get; set; }
+        public string PaymentMethod { get; set; }
+        public decimal? Amount { get; set; }
+        public decimal ConsultationFee { get; set; }
+    }
+
+    public class AppointmentRequest
+    {
+        public int HospitalId { get; set; }
+        public int DoctorId { get; set; }
+        public DateTime? FromDate { get; set; }
+        public DateTime? ToDate { get; set; }
+    }
 }

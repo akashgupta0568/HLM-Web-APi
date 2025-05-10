@@ -1,6 +1,6 @@
 ﻿namespace HLM_Web_APi.DTO
 {
-    public class models
+    public class Models
     {
     }
     public class RegisterUserDto

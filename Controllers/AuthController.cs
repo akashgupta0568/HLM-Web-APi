@@ -161,94 +161,39 @@ namespace HLM_Web_APi.Controllers
                 {
                     conn.Open();
 
-                    // 🔹 Check Admin Login (Users Table)
-                    string adminQuery = @"
-                SELECT u.UserID, u.FullName, u.Email, u.PhoneNumber, 
-                       u.PasswordHash, u.RoleID, r.RoleName 
+                    string query = @"
+                SELECT u.UserID, u.FullName, u.Email, u.PasswordHash, u.RoleID, r.RoleName 
                 FROM Users u
                 INNER JOIN Roles r ON u.RoleID = r.RoleID
                 WHERE u.Email = @Email";
 
-                    using (SqlCommand adminCmd = new SqlCommand(adminQuery, conn))
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
-                        adminCmd.Parameters.AddWithValue("@Email", user.Email);
-                        using (SqlDataReader adminReader = adminCmd.ExecuteReader())
+                        cmd.Parameters.AddWithValue("@Email", user.Email);
+                        using (SqlDataReader reader = cmd.ExecuteReader())
                         {
-                            if (adminReader.Read())
+                            if (reader.Read())
                             {
-                                string? storedPassword = adminReader["PasswordHash"] as string;
-                                if (!string.IsNullOrEmpty(storedPassword) && storedPassword.StartsWith("$2"))
+                                string storedPassword = reader["PasswordHash"].ToString();
+                                if (!string.IsNullOrEmpty(storedPassword) && storedPassword.StartsWith("$2") &&
+                                    BCrypt.Net.BCrypt.Verify(user.Password, storedPassword))
                                 {
-                                    if (BCrypt.Net.BCrypt.Verify(user.Password, storedPassword))
+                                    var token = GenerateJwtToken(reader["UserID"].ToString(), reader["Email"].ToString(), reader["RoleID"].ToString());
+                                    return Ok(new
                                     {
-                                        var token = GenerateJwtToken(
-                                            adminReader["UserID"].ToString(),
-                                            adminReader["Email"].ToString(),
-                                            adminReader["RoleID"].ToString()
-                                        );
-
-                                        return Ok(new
-                                        {
-                                            message = "Admin Login successful!",
-                                            token,
-                                            roleID = adminReader["RoleID"],
-                                            roleName = adminReader["RoleName"],
-                                            userId = adminReader["UserID"],
-                                            userType = "Admin"
-                                        });
-                                    }
+                                        message = "Login successful!",
+                                        token,
+                                        roleID = reader["RoleID"],
+                                        roleName = reader["RoleName"],
+                                        userId = reader["UserID"],
+                                        userType = "Admin"
+                                    });
                                 }
-                                return Unauthorized(new { message = "Invalid credentials" });
+                                return Unauthorized(new { message = "Invalid email or password" });
                             }
                         }
                     }
-
-                    // 🔹 Check Hospital User Login (HospitalUsers Table)
-                    string hospitalUserQuery = @"
-                SELECT hu.UserID, hu.FullName, hu.Email, hu.PhoneNumber, 
-                       hu.PasswordHash, hu.RoleID,hu.CreatedByAdminID, r.RoleName, h.Name AS HospitalName
-                FROM HospitalUsers hu
-                INNER JOIN Roles r ON hu.RoleID = r.RoleID
-                INNER JOIN Hospitals h ON hu.HospitalID = h.HospitalID
-                WHERE hu.Email = @Email";
-
-                    using (SqlCommand hospitalCmd = new SqlCommand(hospitalUserQuery, conn))
-                    {
-                        hospitalCmd.Parameters.AddWithValue("@Email", user.Email);
-                        using (SqlDataReader hospitalReader = hospitalCmd.ExecuteReader())
-                        {
-                            if (hospitalReader.Read())
-                            {
-                                string? storedPassword = hospitalReader["PasswordHash"] as string;
-                                if (!string.IsNullOrEmpty(storedPassword) && storedPassword.StartsWith("$2"))
-                                {
-                                    if (BCrypt.Net.BCrypt.Verify(user.Password, storedPassword))
-                                    {
-                                        var token = GenerateJwtToken(
-                                            hospitalReader["UserID"].ToString(),
-                                            hospitalReader["Email"].ToString(),
-                                            hospitalReader["RoleID"].ToString()
-                                        );
-
-                                        return Ok(new
-                                        {
-                                            message = "Hospital User Login successful!",
-                                            token,
-                                            roleID = hospitalReader["RoleID"],
-                                            roleName = hospitalReader["RoleName"],
-                                            HospitalUserId = hospitalReader["UserID"],
-                                            hospitalName = hospitalReader["HospitalName"],
-                                            CreatedByAdminID = hospitalReader["CreatedByAdminID"],
-                                            userType = "HospitalUser"
-                                        });
-                                    }
-                                }
-                                return Unauthorized(new { message = "Invalid credentials" });
-                            }
-                        }
-                    }
-
-                    return Unauthorized(new { message = "Invalid credentials" });
+                    return Unauthorized(new { message = "Invalid email or password" });
                 }
             }
             catch (Exception ex)
@@ -256,6 +201,7 @@ namespace HLM_Web_APi.Controllers
                 return StatusCode(500, new { message = "Error: " + ex.Message });
             }
         }
+
 
 
 

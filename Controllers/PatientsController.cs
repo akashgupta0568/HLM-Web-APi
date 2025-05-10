@@ -68,7 +68,7 @@ namespace HLM_Web_APi.Controllers
                 using (SqlConnection conn = new SqlConnection(_connection.ConnectionString))
                 {
                     conn.Open();
-                    string query = "SELECT PatientID, Name, Phone, Email, Age, Gender,  HospitalID, CreatedAt FROM Patients WHERE PatientID = @PatientID";
+                    string query = "SELECT PatientID, Name,FatherHusbandName, Phone, Email, Age, Gender,  HospitalID, CreatedAt FROM Patients WHERE PatientID = @PatientID";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
@@ -81,6 +81,7 @@ namespace HLM_Web_APi.Controllers
                                 {
                                     PatientID = reader["PatientID"],
                                     Name = reader["Name"],
+                                    FatherHusbandName = reader["FatherHusbandName"],
                                     Phone = reader["Phone"],
                                     Email = reader["Email"],
                                     Age = reader["Age"],
@@ -126,12 +127,13 @@ namespace HLM_Web_APi.Controllers
                     }
 
                     // Insert new patient
-                    string query = "INSERT INTO Patients (Name, Phone, Email, Gender, DateOfBirth, HospitalID, CreatedAt) " +
-                                   "VALUES (@Name, @Phone, @Email, @Gender, @DateOfBirth, @HospitalID, GETDATE())";
+                    string query = "INSERT INTO Patients (Name,FatherHusbandName, Phone, Email, Gender, DateOfBirth, HospitalID, CreatedAt) " +
+                                   "VALUES (@Name,@FatherHusbandName, @Phone, @Email, @Gender, @DateOfBirth, @HospitalID, GETDATE())";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@Name", patient.Name);
+                        cmd.Parameters.AddWithValue("@FatherHusbandName", patient.FatherHusbandName);
                         cmd.Parameters.AddWithValue("@Phone", patient.Phone);
                         cmd.Parameters.AddWithValue("@Email", patient.Email);
                         cmd.Parameters.AddWithValue("@Gender", patient.Gender);
@@ -161,13 +163,14 @@ namespace HLM_Web_APi.Controllers
                     conn.Open();
 
                     string query = "UPDATE Patients " +
-                                   "SET Name = @Name, Phone = @Phone, Email = @Email, Gender = @Gender, DateOfBirth = @DateOfBirth, HospitalID = @HospitalID " +
+                                   "SET Name = @Name, FatherHusbandName=@FatherHusbandName,  Phone = @Phone, Email = @Email, Gender = @Gender, DateOfBirth = @DateOfBirth, HospitalID = @HospitalID " +
                                    "WHERE PatientID = @PatientID";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@PatientID", id);
                         cmd.Parameters.AddWithValue("@Name", patient.Name);
+                        cmd.Parameters.AddWithValue("@FatherHusbandName", patient.FatherHusbandName);
                         cmd.Parameters.AddWithValue("@Phone", patient.Phone);
                         cmd.Parameters.AddWithValue("@Email", patient.Email);
                         cmd.Parameters.AddWithValue("@Gender", patient.Gender);
@@ -227,7 +230,8 @@ namespace HLM_Web_APi.Controllers
                     string query = @"
             SELECT 
                 p.PatientID, 
-                p.Name, 
+                p.Name,
+                p.FatherHusbandName,
                 p.Phone, 
                 p.Email, 
                 p.Gender, 
@@ -255,6 +259,7 @@ namespace HLM_Web_APi.Controllers
                                 {
                                     PatientID = reader["PatientID"] as int? ?? 0,
                                     Name = reader["Name"] as string ?? "",
+                                    FatherHusbandName = reader["FatherHusbandName"] as string ?? "",
                                     Phone = reader["Phone"] as string ?? "",
                                     Email = reader["Email"] as string ?? "",
                                     Gender = reader["Gender"] as string ?? "",
