@@ -103,46 +103,39 @@ namespace HLM_Web_APi.Controllers
         {
             try
             {
-                string hashedPassword = BCrypt.Net.BCrypt.HashPassword(user.Password); // Hash password
+                string hashedPassword = BCrypt.Net.BCrypt.HashPassword(user.Password);
 
                 using (SqlConnection conn = new SqlConnection(_connection.ConnectionString))
                 {
                     conn.Open();
 
-                    // 🔹 Check if the user already exists (by Email or PhoneNumber)
-                    string checkQuery = "SELECT COUNT(*) FROM Users WHERE Email = @Email OR PhoneNumber = @PhoneNumber";
-                    using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
+                    using (SqlCommand cmd = new SqlCommand("sp_RegisterUser", conn))
                     {
-                        checkCmd.Parameters.AddWithValue("@Email", user.Email);
-                        checkCmd.Parameters.AddWithValue("@PhoneNumber", user.PhoneNumber);
+                        cmd.CommandType = CommandType.StoredProcedure;
 
-                        int existingCount = (int)checkCmd.ExecuteScalar();
-                        if (existingCount > 0)
-                        {
-                            return BadRequest(new { message = "User with this email or phone number already exists!" });
-                        }
-                    }
-
-                    // 🔹 Insert new user and return ID
-                    string query = "INSERT INTO Users (FullName, Email, PhoneNumber, PasswordHash,PlainPassword, RoleID, CreatedAt) " +
-                                   "OUTPUT INSERTED.UserID " +  // Retrieve the newly inserted ID
-                                   "VALUES (@FullName, @Email, @PhoneNumber, @PasswordHash, @PlainPassword, @RoleID, GETDATE())";
-
-                    using (SqlCommand cmd = new SqlCommand(query, conn))
-                    {
                         cmd.Parameters.AddWithValue("@FullName", user.FullName);
                         cmd.Parameters.AddWithValue("@Email", user.Email);
                         cmd.Parameters.AddWithValue("@PhoneNumber", user.PhoneNumber);
                         cmd.Parameters.AddWithValue("@PasswordHash", hashedPassword);
-                        cmd.Parameters.AddWithValue("@PlainPassword",user.Password);
                         cmd.Parameters.AddWithValue("@RoleID", user.RoleID);
+                        cmd.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
 
-                        object insertedId = cmd.ExecuteScalar();
+                        SqlParameter outputIdParam = new SqlParameter("@UserID", SqlDbType.Int)
+                        {
+                            Direction = ParameterDirection.Output
+                        };
+                        cmd.Parameters.Add(outputIdParam);
 
-                        if (insertedId != null)
-                            return Ok(new { message = "User registered successfully!", userId = insertedId });
-                        else
-                            return BadRequest(new { message = "Registration failed" });
+                        cmd.ExecuteNonQuery();
+
+                        int userId = (int)outputIdParam.Value;
+
+                        if (userId == -1)
+                        {
+                            return BadRequest(new { message = "User with this email or phone number already exists!" });
+                        }
+
+                        return Ok(new { message = "User registered successfully!", userId = userId });
                     }
                 }
             }
@@ -151,6 +144,7 @@ namespace HLM_Web_APi.Controllers
                 return StatusCode(500, new { message = "Error: " + ex.Message });
             }
         }
+
 
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginUserDto user)

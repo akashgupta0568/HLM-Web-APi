@@ -1,21 +1,19 @@
-using HLM_Web_APi.DataAccess;
+﻿using HLM_Web_APi.DataAccess;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Data.SqlClient;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddSingleton(new SqlConnection(connectionString));
 builder.Services.AddSingleton<DbHelper>();
 builder.Services.AddControllers();
 
-// Learn more about configuring Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Add JWT Authentication
+
 var key = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "YourSuperSecretKey123!");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -32,16 +30,26 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-var corsPolicy = "_allowSpecificOrigins";
+//var corsPolicy = "_allowSpecificOrigins";
+var corsPolicy = "_allowAll";
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy(corsPolicy, policy =>
+//    {
+//        policy.WithOrigins("http://localhost:4200") // Allow frontend URL
+//              .AllowAnyHeader()
+//              .AllowAnyMethod()
+//              .AllowCredentials();
+//    });
+//});
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(corsPolicy, policy =>
+    options.AddPolicy("_allowAll", policy =>
     {
-        policy.WithOrigins("http://localhost:4200") // Allow frontend URL
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        policy.AllowAnyOrigin()    // ✅ Allow all domains
+              .AllowAnyHeader()    // ✅ Allow all headers
+              .AllowAnyMethod();   // ✅ Allow all methods (GET, POST, etc.)
     });
 });
 
@@ -53,11 +61,13 @@ var app = builder.Build();
 
 
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+//if (app.Environment.IsDevelopment())
+//{
+    
+//}
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 // Enable Global Exception Handling
 app.UseExceptionHandler(app =>
