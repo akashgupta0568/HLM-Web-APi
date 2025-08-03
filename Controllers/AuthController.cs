@@ -39,9 +39,9 @@ namespace HLM_Web_APi.Controllers
                     conn.Open();
 
                     // Fetch Roles
-                    string roleQuery = "SELECT RoleId, RoleName FROM Roles";
-                    using (SqlCommand roleCmd = new SqlCommand(roleQuery, conn))
+                    using (SqlCommand roleCmd = new SqlCommand("Sp_GetAllRoles", conn))
                     {
+                        roleCmd.CommandType = CommandType.StoredProcedure;
                         using (SqlDataReader reader = roleCmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -56,9 +56,9 @@ namespace HLM_Web_APi.Controllers
                     }
 
                     // Fetch Hospitals
-                    string hospitalQuery = "SELECT HospitalID, Name, Address, City, State, ZipCode, PhoneNumber, Email, LicenseNumber, CreatedAt, CreatedBy FROM Hospitals";
-                    using (SqlCommand hospitalCmd = new SqlCommand(hospitalQuery, conn))
+                    using (SqlCommand hospitalCmd = new SqlCommand("Sp_GetAllHospitals", conn))
                     {
+                        hospitalCmd.CommandType = CommandType.StoredProcedure;
                         using (SqlDataReader reader = hospitalCmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -81,7 +81,6 @@ namespace HLM_Web_APi.Controllers
                         }
                     }
 
-                    // Return both lists in JSON format
                     return Ok(new
                     {
                         roles = roles,
@@ -94,6 +93,7 @@ namespace HLM_Web_APi.Controllers
                 }
             }
         }
+
 
 
 
@@ -145,7 +145,6 @@ namespace HLM_Web_APi.Controllers
             }
         }
 
-
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginUserDto user)
         {
@@ -155,15 +154,11 @@ namespace HLM_Web_APi.Controllers
                 {
                     conn.Open();
 
-                    string query = @"
-                SELECT u.UserID, u.FullName, u.Email, u.PasswordHash, u.RoleID, r.RoleName 
-                FROM Users u
-                INNER JOIN Roles r ON u.RoleID = r.RoleID
-                WHERE u.Email = @Email";
-
-                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    using (SqlCommand cmd = new SqlCommand("Sp_LoginUserByEmail", conn))
                     {
+                        cmd.CommandType = CommandType.StoredProcedure;
                         cmd.Parameters.AddWithValue("@Email", user.Email);
+
                         using (SqlDataReader reader = cmd.ExecuteReader())
                         {
                             if (reader.Read())
