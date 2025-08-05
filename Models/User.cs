@@ -149,4 +149,12 @@
         public DateTime? FromDate { get; set; }
         public DateTime? ToDate { get; set; }
     }
+
+    public class SubscriptionRequest
+    {
+        public int UserId { get; set; }
+        public int PlanId { get; set; }
+        public string? CreatedBy { get; set; }
+        public DateTime? RequestedOn { get; set; }
+    }
 }
