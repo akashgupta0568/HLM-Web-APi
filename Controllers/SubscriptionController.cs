@@ -1,5 +1,4 @@
 ﻿using HLM_Web_APi.Models;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -8,7 +7,6 @@ using System.Security.Claims;
 
 namespace HLM_Web_APi.Controllers
 {
-    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class SubscriptionController : ControllerBase
@@ -48,8 +46,8 @@ namespace HLM_Web_APi.Controllers
         [HttpGet("isExpired")]
         public IActionResult IsSubscriptionExpired()
         {
-            var userId = GetUserIdFromToken(); // from JWT
-            //var userId = 43;
+            //var userId = GetUserIdFromToken(); // from JWT
+            var userId = 43;
             using SqlConnection conn = new(_configuration.GetConnectionString("DefaultConnection"));
             SqlCommand cmd = new("Sp_CheckSubscriptionExpiry", conn)
             {
@@ -77,66 +75,30 @@ namespace HLM_Web_APi.Controllers
             return Ok();
         }
 
-
         [HttpPost("subscribe")]
         public IActionResult Subscribe([FromBody] SubscriptionRequest req)
         {
-            int userId = GetUserIdFromToken(); // ✅ Secure way to get UserID from token
+            //int userId = GetUserIdFromToken(); // ✅ more secure
 
             using SqlConnection conn = new(_configuration.GetConnectionString("DefaultConnection"));
+            using SqlCommand cmd = new("Sp_AddUserSubscription", conn);
+            cmd.CommandType = CommandType.StoredProcedure;
+
+            cmd.Parameters.AddWithValue("@UserID", req.UserId);
+            cmd.Parameters.AddWithValue("@PlanID", req.PlanId);
+
+            conn.Open();
 
             try
             {
-                // 1. First, Add the subscription using the stored procedure
-                using (SqlCommand cmd = new("Sp_AddUserSubscription", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@UserID", userId);
-                    cmd.Parameters.AddWithValue("@PlanID", req.PlanId);
-
-                    conn.Open();
-                    cmd.ExecuteNonQuery();
-                    conn.Close();
-                }
-
-                // 2. Then, fetch the most recent subscription for the user
-                using (SqlCommand fetchCmd = new("Sp_GetUserSubscription", conn))
-                {
-                    fetchCmd.CommandType = CommandType.StoredProcedure;
-                    fetchCmd.Parameters.AddWithValue("@UserID", userId);
-
-                    conn.Open();
-                    using SqlDataReader reader = fetchCmd.ExecuteReader();
-
-                    var subscriptions = new List<object>();
-
-                    while (reader.Read())
-                    {
-                        subscriptions.Add(new
-                        {
-                            SubscriptionID = reader["SubscriptionID"],
-                            UserID = reader["UserID"],
-                            PlanID = reader["PlanID"],
-                            StartDate = reader["StartDate"],
-                            EndDate = reader["EndDate"],
-                            IsActive = reader["IsActive"]
-                        });
-                    }
-
-                    return Ok(new
-                    {
-                        message = "Subscription added successfully.",
-                        subscription = subscriptions
-                    });
-                }
+                cmd.ExecuteNonQuery();
+                return Ok("Subscription added.");
             }
             catch (SqlException ex)
             {
-                return BadRequest(new { error = ex.Message });
+                return BadRequest(ex.Message);
             }
         }
-
-
 
 
         [HttpGet("user-subscription")]
