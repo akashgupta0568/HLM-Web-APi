@@ -1,4 +1,6 @@
-﻿using HLM_Web_APi.DataAccess;
+﻿using HLM_Web_APi.Controllers;
+using HLM_Web_APi.DataAccess;
+using HLM_Web_APi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Data.SqlClient;
 using Microsoft.IdentityModel.Tokens;
@@ -8,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddSingleton(new SqlConnection(connectionString));
 builder.Services.AddSingleton<DbHelper>();
+builder.Services.AddScoped<MenuRepository>();
 builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
