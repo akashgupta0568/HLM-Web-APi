@@ -19,6 +19,8 @@
     {
         public string Email { get; set; }
         public string Password { get; set; }
+
+        public string? LoginUserType { get; set; } = "internaluser";
     }
 
     public class Role
@@ -56,6 +58,12 @@
     public class RoleDto
     {
         public int RoleId { get; set; }
+        public string RoleName { get; set; }
+    }
+
+    public class UserRoleDto
+    {
+        public int UserRoleID { get; set; }
         public string RoleName { get; set; }
     }
 

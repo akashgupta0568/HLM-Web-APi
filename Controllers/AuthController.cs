@@ -158,6 +158,7 @@ namespace HLM_Web_APi.Controllers
                     {
                         cmd.CommandType = CommandType.StoredProcedure;
                         cmd.Parameters.AddWithValue("@Email", user.Email);
+                        cmd.Parameters.AddWithValue("@LoginUserType", user.LoginUserType);
 
                         using (SqlDataReader reader = cmd.ExecuteReader())
                         {
@@ -175,7 +176,9 @@ namespace HLM_Web_APi.Controllers
                                         roleID = reader["RoleID"],
                                         roleName = reader["RoleName"],
                                         userId = reader["UserID"],
-                                        userType = "Admin"
+                                        userType = reader["RoleName"],
+                                        CreateByUser = reader["CreatedByUserId"],
+                                        LoginUserType = reader["LoginUserType"]
                                     });
                                 }
                                 return Unauthorized(new { message = "Invalid email or password" });

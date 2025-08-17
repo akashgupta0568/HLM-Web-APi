@@ -30,7 +30,7 @@ namespace HLM_Web_APi.Controllers
         public async Task<IActionResult> GetRoles()
         {
             //if (!await EnsureAdminAsync()) return Forbid();
-            var roles = await _repo.GetAllRolesAsync();
+            var roles = await _repo.GetAllMainRolesAsync();
             return Ok(roles);
         }
 

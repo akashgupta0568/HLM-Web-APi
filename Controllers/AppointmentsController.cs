@@ -373,11 +373,54 @@ namespace HLM_Web_APi.Controllers
         {
             try
             {
+                if (request == null)
+                {
+                    return BadRequest(new { message = "Invalid request. Appointment request cannot be null." });
+                }
+
                 List<AppointmentResponse> appointments = new List<AppointmentResponse>();
 
                 using (SqlConnection conn = new SqlConnection(_connection.ConnectionString))
                 {
                     conn.Open();
+
+                    // ✅ Update Appointment Status only if appointmentStatus is provided and valid
+                    if (!string.IsNullOrWhiteSpace(request.appointmentStatus))
+                    {
+                        if (request.appointmentStatus == "Ready" ||
+                            request.appointmentStatus == "In Progress" ||
+                            request.appointmentStatus == "Completed")
+                        {
+                            string updateQuery = @"UPDATE Appointments 
+                                           SET Status = @Status 
+                                           WHERE AppointmentID = @AppointmentID";
+
+                            using (SqlCommand updateCmd = new SqlCommand(updateQuery, conn))
+                            {
+                                updateCmd.Parameters.AddWithValue("@Status", request.appointmentStatus);
+                                updateCmd.Parameters.AddWithValue("@AppointmentID", request.appointmentID);
+
+                                int rowsAffected = updateCmd.ExecuteNonQuery();
+
+                                if (rowsAffected == 0)
+                                {
+                                    return NotFound(new { message = "No appointment found with the given AppointmentID." });
+                                }
+                            }
+                        }
+                        else
+                        {
+                            return BadRequest(new { message = "Invalid appointment status value. Allowed values are: Ready, In Progress, Completed." });
+                        }
+                    }
+
+                }
+
+
+                using (SqlConnection conn = new SqlConnection(_connection.ConnectionString))
+                {
+                    conn.Open();
+
                     using (SqlCommand cmd = new SqlCommand("GetAppointmentsByDoctorAndHospital", conn))
                     {
                         cmd.CommandType = CommandType.StoredProcedure;

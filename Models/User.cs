@@ -35,6 +35,8 @@
         public string Email { get; set; }
         public int HospitalID { get; set; }
         public int ConsultationFee { get; set; }
+
+        public int CreatedBy { get; set; }
     }
 
     public class PatientDto
@@ -144,10 +146,12 @@
 
     public class AppointmentRequest
     {
-        public int HospitalId { get; set; }
-        public int DoctorId { get; set; }
+        public int? HospitalId { get; set; }
+        public int? DoctorId { get; set; }
         public DateTime? FromDate { get; set; }
         public DateTime? ToDate { get; set; }
+        public string? appointmentStatus { get; set; } 
+        public int? appointmentID { get; set; }
     }
 
     public class SubscriptionRequest

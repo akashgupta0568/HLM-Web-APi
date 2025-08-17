@@ -39,7 +39,7 @@ namespace HLM_Web_APi.Services
             return list;
         }
 
-        public async Task<List<RoleDto>> GetAllRolesAsync()
+        public async Task<List<RoleDto>> GetAllMainRolesAsync()
         {
             var list = new List<RoleDto>();
             using var conn = GetConn();
@@ -128,5 +128,33 @@ namespace HLM_Web_APi.Services
             var result = await cmd.ExecuteScalarAsync();
             return result != null && Convert.ToInt32(result) == 1;
         }
+
+        public async Task<List<UserRoleDto>> GetInternalRolesAsync()
+        {
+            var list = new List<UserRoleDto>();
+
+            using var conn = GetConn();
+            using var cmd = new SqlCommand("dbo.sp_GetInternalAllUserRoles", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+
+            await conn.OpenAsync();
+            using var rdr = await cmd.ExecuteReaderAsync();
+
+            while (await rdr.ReadAsync())
+            {
+                list.Add(new UserRoleDto
+                {
+                    UserRoleID = rdr.GetInt32(rdr.GetOrdinal("UserRoleID")),
+                    RoleName = rdr.GetString(rdr.GetOrdinal("RoleName"))
+                });
+            }
+
+            return list;
+        }
+
+
+
     }
 }

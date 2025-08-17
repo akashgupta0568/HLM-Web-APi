@@ -21,7 +21,6 @@ namespace HLM_Web_APi.Controllers
         {
             try
             {
-                // ✅ Generate hashed password
                 string hashedPassword = BCrypt.Net.BCrypt.HashPassword(user.Password);
 
                 using (SqlConnection conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
@@ -189,6 +188,91 @@ namespace HLM_Web_APi.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Error: " + ex.Message });
+            }
+        }
+
+        //[HttpGet("by-hospital/{hospitalId}")]
+        //public async Task<IActionResult> GetInternalUsersByHospitalId(int hospitalId)
+        //{
+        //    if (hospitalId <= 0)
+        //        return BadRequest("Invalid Hospital ID.");
+
+        //    using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //    {
+        //        var parameters = new DynamicParameters();
+        //        parameters.Add("@HospitalId", hospitalId, DbType.Int32);
+
+        //        var users = await connection.QueryAsync<InternalUserDto>(
+        //            "sp_GetInternalUsersByHospitalId",
+        //            parameters,
+        //            commandType: CommandType.StoredProcedure
+        //        );
+
+        //        return Ok(users);
+        //    }
+        //}
+
+        [HttpGet("by-hospital/{hospitalId:int}")]
+        public IActionResult GetInternalUsersByHospitalId(int hospitalId)
+        {
+            if (hospitalId <= 0)
+                return BadRequest(new { message = "Invalid Hospital ID." });
+
+            try
+            {
+                var users = new List<object>();
+
+                using (var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                {
+                    conn.Open();
+
+                    using (var cmd = new SqlCommand("sp_GetInternalUsersByHospitalId", conn))
+                    {
+                        cmd.CommandType = CommandType.StoredProcedure;
+                        cmd.Parameters.Add("@HospitalId", SqlDbType.Int).Value = hospitalId;
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                users.Add(new
+                                {
+                                    InternalUserId = reader["InternalUserId"],
+                                    HospitalId = reader["HospitalId"],
+                                    HospitalName = reader["HospitalName"],
+                                    AdminRoleID = reader["AdminRoleID"],
+                                    AdminRoleName = reader["AdminRoleName"],
+                                    Name = reader["Name"],
+                                    Email = reader["Email"],
+                                    Phone = reader["Phone"],
+                                    JoiningDate = reader["JoiningDate"],
+                                    Salary = reader["Salary"],
+                                    Username = reader["Username"],
+                                    CreatedByUserId = reader["CreatedByUserId"],
+                                    CreatedByName = reader["CreatedByName"],
+                                    CreatedAt = reader["CreatedAt"],
+                                    IsActive = reader["IsActive"],
+                                    AssignedByAdminRole = reader["AssignedByAdminRole"],
+                                    AssignedByAdminRoleName = reader["AssignedByAdminRoleName"]
+                                });
+                            }
+                        }
+                    }
+                }
+
+                if (users.Count == 0)
+                    return NotFound(new { message = $"No internal users found for Hospital ID {hospitalId}." });
+
+
+                return Ok(users);
+            }
+            catch (SqlException sqlEx)
+            {
+                return StatusCode(500, new { message = "Database error: " + sqlEx.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Unexpected error: " + ex.Message });
             }
         }
 

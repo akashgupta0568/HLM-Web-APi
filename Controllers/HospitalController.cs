@@ -193,6 +193,20 @@ namespace HLM_Web_APi.Controllers
                         }
                     }
 
+                    string userCheckQuery = "SELECT COUNT(*) FROM Hospitals WHERE CreatedBy = @CreatedBy";
+
+                    using (SqlCommand cmd = new SqlCommand(userCheckQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@CreatedBy", hospital.CreatedBy);
+                        int userExists = (int)cmd.ExecuteScalar();
+
+                        if (userExists > 0)
+                        {
+                            return BadRequest(new { message = "Hospital is already registered.!" });
+                        }
+                    }
+
+
                     // ✅ Insert Hospital if no duplicate found
                     string query = "INSERT INTO Hospitals (Name, Address, City, State, ZipCode, PhoneNumber, Email, LicenseNumber, CreatedBy) " +
                                    "VALUES (@Name, @Address, @City, @State, @ZipCode, @PhoneNumber, @Email, @LicenseNumber, @CreatedBy)";

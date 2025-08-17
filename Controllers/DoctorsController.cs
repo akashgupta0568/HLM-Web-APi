@@ -129,8 +129,8 @@ namespace HLM_Web_APi.Controllers
                     }
 
                     // Insert new doctor
-                    string query = "INSERT INTO Doctors (Name, Specialization, PhoneNumber, Email, HospitalID, RegisterDateTime,ConsultationFee) " +
-                                   "VALUES (@Name, @Specialization, @PhoneNumber, @Email, @HospitalID,GETDATE(),@ConsultationFee)";
+                    string query = "INSERT INTO Doctors (Name, Specialization, PhoneNumber, Email, HospitalID, RegisterDateTime,ConsultationFee,CreatedBy) " +
+                                   "VALUES (@Name, @Specialization, @PhoneNumber, @Email, @HospitalID,GETDATE(),@ConsultationFee,@CreatedBy)";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
@@ -140,6 +140,7 @@ namespace HLM_Web_APi.Controllers
                         cmd.Parameters.AddWithValue("@Email", doctor.Email);
                         cmd.Parameters.AddWithValue("@HospitalID", doctor.HospitalID);
                         cmd.Parameters.AddWithValue("@ConsultationFee", doctor.ConsultationFee);
+                        cmd.Parameters.AddWithValue("@CreatedBy", doctor.CreatedBy);
                         int result = cmd.ExecuteNonQuery();
                         return result > 0
                             ? Ok(new { message = "Doctor added successfully!" })
