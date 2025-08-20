@@ -268,7 +268,8 @@ namespace HLM_Web_APi.Controllers
             }
         }
 
-        [HttpPost("DirectaddAppPay")]
+        //[HttpPost("DirectaddAppPay")]
+        //[HttpPost("AddAppointmentWithPayment")]
         public IActionResult PaymentAndAppointment([FromBody] AppointmentWithPatient appointment)
         {
             try
@@ -278,6 +279,36 @@ namespace HLM_Web_APi.Controllers
                     conn.Open();
                     using (SqlTransaction transaction = conn.BeginTransaction()) // 🔹 Start Transaction
                     {
+                        // 🔹 First check if Aadhaar already exists\
+                        var aadharID = appointment.aadhar;
+
+                        // Step 1: Check if Aadhaar exists in AadharCard
+                        string checkAadharQuery = "SELECT AadharID FROM AadharCard WHERE AadharID = @aadharID";
+                        using (SqlCommand checkCmd = new SqlCommand(checkAadharQuery, conn, transaction))
+                        {
+                            checkCmd.Parameters.AddWithValue("@AadharID", aadharID);
+
+                            object existingAadhar = checkCmd.ExecuteScalar();
+
+                            if (existingAadhar == null) // Aadhaar not found → insert into AadharCard
+                            {
+                                string insertAadharQuery = @"
+            INSERT INTO AadharCard (AadharID, FullName, DOB, Gender, Address, MobileNumber, CreatedDate)
+            VALUES (@AadharID, @FullName, @DOB, @Gender, @Address, @MobileNumber, CAST(GETDATE() AS DATE))";
+
+                                using (SqlCommand insertAadharCmd = new SqlCommand(insertAadharQuery, conn, transaction))
+                                {
+                                    insertAadharCmd.Parameters.AddWithValue("@AadharID", aadharID);
+                                    insertAadharCmd.Parameters.AddWithValue("@FullName", appointment.FullName);
+                                    insertAadharCmd.Parameters.AddWithValue("@DOB", appointment.DateOfBirth ?? (object)DBNull.Value);
+                                    insertAadharCmd.Parameters.AddWithValue("@Gender", appointment.Gender);
+                                    insertAadharCmd.Parameters.AddWithValue("@Address", appointment.Address ?? (object)DBNull.Value);
+                                    insertAadharCmd.Parameters.AddWithValue("@MobileNumber", appointment.PhoneNumber);
+
+                                    insertAadharCmd.ExecuteNonQuery();
+                                }
+                            }
+                        }
                         try
                         {
                             // 🔹 Insert a new patient (No check for existing patient)
@@ -367,6 +398,80 @@ namespace HLM_Web_APi.Controllers
                 return StatusCode(500, new { message = "Error: " + ex.Message });
             }
         }
+
+        
+        [HttpPost("DirectaddAppPay")]
+        public IActionResult AddAppointmentWithPayment([FromBody] AppointmentWithPatient appointment)
+        {
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connection.ConnectionString))
+                {
+                    using (SqlCommand cmd = new SqlCommand("Sp_AddAppointmentWithPayment", conn))
+                    {
+                        cmd.CommandType = CommandType.StoredProcedure;
+
+                        // ✅ Input parameters
+                        cmd.Parameters.AddWithValue("@AadharID", appointment.aadhar);
+                        cmd.Parameters.AddWithValue("@FullName", appointment.FullName);
+                        cmd.Parameters.AddWithValue("@DOB", appointment.DateOfBirth ?? (object)DBNull.Value);
+                        cmd.Parameters.AddWithValue("@Gender", appointment.Gender ?? (object)DBNull.Value);
+                        cmd.Parameters.AddWithValue("@Address", appointment.Address ?? (object)DBNull.Value);
+                        cmd.Parameters.AddWithValue("@MobileNumber", appointment.PhoneNumber);
+
+                        cmd.Parameters.AddWithValue("@FatherHusbandName", appointment.FatherHusbandName ?? (object)DBNull.Value);
+                        cmd.Parameters.AddWithValue("@Email", appointment.Email ?? (object)DBNull.Value);
+                        cmd.Parameters.AddWithValue("@Age", appointment.Age);
+                        cmd.Parameters.AddWithValue("@HospitalID", appointment.HospitalID);
+
+                        cmd.Parameters.AddWithValue("@DoctorID", appointment.DoctorID);
+                        cmd.Parameters.AddWithValue("@AppointmentDate", appointment.AppointmentDate);
+                        cmd.Parameters.AddWithValue("@AppointmentTime", appointment.AppointmentTime);
+                        cmd.Parameters.AddWithValue("@Status", appointment.Status ?? "Pending");
+                        cmd.Parameters.AddWithValue("@AppointmentFee", appointment.AppointmentFee);
+
+                        cmd.Parameters.AddWithValue("@PaymentMethod", appointment.PaymentMethod);
+                        cmd.Parameters.AddWithValue("@TransactionID", appointment.TransactionID);
+
+                        // ✅ Output parameters
+                        var outPatientID = new SqlParameter("@PatientID", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        var outAppointmentID = new SqlParameter("@AppointmentID", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        var outPaymentID = new SqlParameter("@PaymentID", SqlDbType.Int) { Direction = ParameterDirection.Output };
+
+                        cmd.Parameters.Add(outPatientID);
+                        cmd.Parameters.Add(outAppointmentID);
+                        cmd.Parameters.Add(outPaymentID);
+
+                        conn.Open();
+                        cmd.ExecuteNonQuery();
+
+                        int patientID = (outPatientID.Value == DBNull.Value) ? 0 : Convert.ToInt32(outPatientID.Value);
+                        int appointmentID = (outAppointmentID.Value == DBNull.Value) ? 0 : Convert.ToInt32(outAppointmentID.Value);
+                        int paymentID = (outPaymentID.Value == DBNull.Value) ? 0 : Convert.ToInt32(outPaymentID.Value);
+
+                        // ✅ Success response
+                        return Ok(new
+                        {
+                            Status = "Success",
+                            Message = "Appointment and Payment inserted successfully",
+                            PatientID = patientID,
+                            AppointmentID = appointmentID,
+                            PaymentID = paymentID
+                        });
+                    }
+                }
+            }
+            catch (SqlException sqlEx)
+            {
+                // This will catch RAISERROR messages from SQL
+                return StatusCode(500, new { Status = "Error", Message = sqlEx.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Status = "Error", Message = ex.Message });
+            }
+        }
+
 
         [HttpPost("GetAppointments")]
         public IActionResult GetAppointments([FromBody] AppointmentRequest request)

@@ -69,6 +69,8 @@
 
     public class AppointmentWithPatient
     {
+        public string? Address { get; set; }
+        public string? aadhar { get; set; }
         public string? Name { get; set; }
 
         public string? FatherHusbandName { get; set; }
